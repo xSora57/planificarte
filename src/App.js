@@ -2,7 +2,7 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Clients from "./components/Clients";
 import Projects from "./components/Projects";
-import Login from "./components/Login";
+import Login from "./components/login";
 import { isAuthenticated } from "./utils/auth";
 import "bootstrap/dist/css/bootstrap.min.css";
 
