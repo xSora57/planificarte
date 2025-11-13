@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { Modal, Button, Form } from "react-bootstrap";
 import Calendar from "react-calendar";
@@ -31,8 +31,12 @@ function App() {
   const [loginData, setLoginData] = useState({ username: "", password: "" });
   const [showLoginModal, setShowLoginModal] = useState(!isLoggedIn);
 
-  // Instancia de Axios con base URL (ajustada para incluir /api en las rutas)
-const api = axios.create({ baseURL: ["http://localhost:5000", "http://192.168.0.145:5000"] });
+  // Detecta si estás en localhost o IP externa
+  const isLocalhost = window.location.hostname === "localhost";
+  const backendURL = isLocalhost ? "http://localhost:5000" : "http://192.168.0.145:5000";
+
+  // Instancia de Axios con baseURL dinámica
+  const api = axios.create({ baseURL: backendURL });
 
   // Interceptor para agregar el token automáticamente
   api.interceptors.request.use(
@@ -48,35 +52,29 @@ const api = axios.create({ baseURL: ["http://localhost:5000", "http://192.168.0.
   // Función para login local
   const handleLogin = async () => {
     try {
-      const res = await axios.post("http://localhost:5000/api/login", loginData);
+      const res = await axios.post(`${backendURL}/api/login`, loginData);
       const newToken = res.data.token;
       setToken(newToken);
       localStorage.setItem("token", newToken);
       setIsLoggedIn(true);
-      setShowLoginModal(false);
-      // Recargar datos después de login
-      getClients();
-      getProjects();
-      getEvents();
     } catch (error) {
       alert("Error en login: " + (error.response?.data || "Credenciales inválidas"));
     }
   };
 
   // Función para login con Google
-const handleGoogleLogin = () => {
-  window.location.href = ["http://localhost:5000/auth/google", "http://192.168.0.145:5000/auth/google"];
-};
+  const handleGoogleLogin = () => {
+    window.location.href = `${backendURL}/auth/google`;
+  };
 
   // Función para logout
   const handleLogout = () => {
     localStorage.removeItem("token");
     setToken("");
     setIsLoggedIn(false);
-    setShowLoginModal(true);
   };
 
- // eslint-disable-next-line react-hooks/exhaustive-deps
+  // useEffect para manejar callback de Google OAuth
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const tokenFromUrl = urlParams.get("token");
@@ -84,7 +82,6 @@ const handleGoogleLogin = () => {
       setToken(tokenFromUrl);
       localStorage.setItem("token", tokenFromUrl);
       setIsLoggedIn(true);
-      setShowLoginModal(false);
       window.history.replaceState({}, document.title, window.location.pathname);
       getClients();
       getProjects();
@@ -92,44 +89,44 @@ const handleGoogleLogin = () => {
     }
   }, []);
 
-  // Funciones para obtener datos (con try-catch para errores)
-  const getClients = async () => {
+  // Funciones memoizadas con useCallback
+  const getClients = useCallback(async () => {
     try {
       const res = await api.get("/api/clients");
       setClients(res.data);
     } catch (error) {
       console.error("Error al obtener clientes:", error);
     }
-  };
+  }, [api]);
 
-  const getProjects = async () => {
+  const getProjects = useCallback(async () => {
     try {
       const res = await api.get("/api/projects");
       setProjects(res.data);
     } catch (error) {
       console.error("Error al obtener proyectos:", error);
     }
-  };
+  }, [api]);
 
-  const getEvents = async () => {
+  const getEvents = useCallback(async () => {
     try {
       const res = await api.get("/api/events");
       setEvents(res.data);
     } catch (error) {
       console.error("Error al obtener eventos:", error);
     }
-  };
+  }, [api]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // useEffect para cargar datos solo si está logueado
   useEffect(() => {
     if (isLoggedIn) {
       getClients();
       getProjects();
       getEvents();
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, getClients, getProjects, getEvents]);
 
-  // Funciones para añadir elementos (usando 'api' con interceptor)
+  // Funciones para añadir elementos
   const addClient = async () => {
     try {
       await api.post("/api/clients", newClient);
@@ -169,7 +166,7 @@ const handleGoogleLogin = () => {
     }
   };
 
-  // Funciones para eliminar elementos (usando 'api' con interceptor)
+  // Funciones para eliminar elementos
   const deleteClient = async (id) => {
     try {
       await api.delete(`/api/clients/${id}`);
@@ -197,7 +194,7 @@ const handleGoogleLogin = () => {
     }
   };
 
-  // Si no está logueado, muestra el modal de login
+
   if (!isLoggedIn) {
     return (
       <div className="d-flex justify-content-center align-items-center vh-100">
