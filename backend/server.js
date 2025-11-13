@@ -14,7 +14,7 @@ import fs from "fs";
 // ⚙️ CONFIGURACIÓN GENERAL
 // ===============================================================
 const app = express();
-app.use(cors({ origin: "http://localhost:3000", credentials: true }));
+app.use(cors({ origin: ["http://localhost:3000", "http://192.168.0.145:3000"], credentials: true }));
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 
@@ -58,7 +58,7 @@ app.use(
 );
 app.use(passport.initialize());
 app.use(passport.session());
-
+app.use(cors({ origin: ["http://localhost:3000", "192.168.0.145:3000"], credentials: true }));
 // ===============================================================
 // 🔑 ESTRATEGIA GOOGLE
 // ===============================================================
@@ -67,7 +67,6 @@ const googleConfig = JSON.parse(
     "./client_secret_399007858065-p8kv5inj7ebqcb7aaoks3kp7kpidjpjk.apps.googleusercontent.com.json"
   )
 );
-
 const { client_id, client_secret, redirect_uris } = googleConfig.web;
 
 passport.use(
@@ -75,39 +74,51 @@ passport.use(
     {
       clientID: client_id,
       clientSecret: client_secret,
-      callbackURL: redirect_uris[0], // normalmente: http://localhost:5000/auth/google/callback
+      callbackURL: redirect_uris[0],
     },
     (accessToken, refreshToken, profile, done) => {
       const email = profile.emails[0].value;
       const username = profile.displayName;
 
-      db.query(
-        "SELECT * FROM users WHERE email = ?",
-        [email],
-        async (err, results) => {
-          if (err) return done(err);
+      db.query("SELECT * FROM users WHERE email = ?", [email], async (err, results) => {
+        if (err) return done(err);
 
-          if (results.length > 0) {
-            return done(null, results[0]);
-          } else {
-            const hashed = await bcrypt.hash("google_auth", 10);
-            db.query(
-              "INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
-              [username, email, hashed],
-              (err, res) => {
-                if (err) return done(err);
-                return done(null, { id: res.insertId, username, email });
-              }
-            );
-          }
+        if (results.length > 0) {
+          return done(null, results[0]);
+        } else {
+          const hashed = await bcrypt.hash("google_auth", 10);
+          db.query(
+            "INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
+            [username, email, hashed],
+            (err, res) => {
+              if (err) return done(err);
+              return done(null, { id: res.insertId, username, email });
+            }
+          );
         }
-      );
+      });
     }
   )
 );
 
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((user, done) => done(null, user));
+
+// ===============================================================
+// 🧱 MIDDLEWARE: VERIFICAR TOKEN
+// ===============================================================
+const verifyToken = (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) return res.status(401).send("Token no proporcionado");
+
+  jwt.verify(token, SECRET_KEY, (err, user) => {
+    if (err) return res.status(403).send("Token inválido");
+    req.user = user;
+    next();
+  });
+};
 
 // ===============================================================
 // 🧑‍💻 LOGIN LOCAL
@@ -156,18 +167,18 @@ app.get(
 // ===============================================================
 // 👥 CLIENTES
 // ===============================================================
-app.get("/api/clients", (req, res) => {
-  db.query("SELECT * FROM clients", (err, data) => {
+app.get("/api/clients", verifyToken, (req, res) => {
+  db.query("SELECT * FROM clients WHERE user_id = ?", [req.user.id], (err, data) => {
     if (err) return res.status(500).send(err);
     res.json(data);
   });
 });
 
-app.post("/api/clients", (req, res) => {
+app.post("/api/clients", verifyToken, (req, res) => {
   const { name, email, phone } = req.body;
   db.query(
-    "INSERT INTO clients (name, email, phone) VALUES (?, ?, ?)",
-    [name, email, phone],
+    "INSERT INTO clients (name, email, phone, user_id) VALUES (?, ?, ?, ?)",
+    [name, email, phone, req.user.id],
     (err) => {
       if (err) return res.status(500).send(err);
       res.send("Cliente agregado");
@@ -175,35 +186,40 @@ app.post("/api/clients", (req, res) => {
   );
 });
 
-app.delete("/api/clients/:id", (req, res) => {
-  db.query("DELETE FROM clients WHERE id = ?", [req.params.id], (err) => {
-    if (err) return res.status(500).send(err);
-    res.send("Cliente eliminado");
-  });
+app.delete("/api/clients/:id", verifyToken, (req, res) => {
+  db.query(
+    "DELETE FROM clients WHERE id = ? AND user_id = ?",
+    [req.params.id, req.user.id],
+    (err) => {
+      if (err) return res.status(500).send(err);
+      res.send("Cliente eliminado");
+    }
+  );
 });
 
 // ===============================================================
 // 🎨 PROYECTOS
 // ===============================================================
-app.get("/api/projects", (req, res) => {
+app.get("/api/projects", verifyToken, (req, res) => {
   const sql = `
     SELECT projects.*, clients.name AS client_name
     FROM projects
     LEFT JOIN clients ON projects.client_id = clients.id
+    WHERE projects.user_id = ?
   `;
-  db.query(sql, (err, result) => {
+  db.query(sql, [req.user.id], (err, result) => {
     if (err) return res.status(500).send(err);
     res.json(result);
   });
 });
 
-app.post("/api/projects", upload.single("image"), (req, res) => {
+app.post("/api/projects", verifyToken, upload.single("image"), (req, res) => {
   const { name, client_id, status } = req.body;
   const image = req.file ? req.file.filename : null;
 
   db.query(
-    "INSERT INTO projects (name, client_id, status, image) VALUES (?, ?, ?, ?)",
-    [name, client_id || null, status || "En progreso", image],
+    "INSERT INTO projects (name, client_id, status, image, user_id) VALUES (?, ?, ?, ?, ?)",
+    [name, client_id || null, status || "En progreso", image, req.user.id],
     (err) => {
       if (err) return res.status(500).send(err);
       res.send("Proyecto guardado correctamente");
@@ -211,16 +227,53 @@ app.post("/api/projects", upload.single("image"), (req, res) => {
   );
 });
 
-app.delete("/api/projects/:id", (req, res) => {
-  db.query("DELETE FROM projects WHERE id = ?", [req.params.id], (err) => {
+app.delete("/api/projects/:id", verifyToken, (req, res) => {
+  db.query(
+    "DELETE FROM projects WHERE id = ? AND user_id = ?",
+    [req.params.id, req.user.id],
+    (err) => {
+      if (err) return res.status(500).send(err);
+      res.send("Proyecto eliminado");
+    }
+  );
+});
+
+// ===============================================================
+// 🗓️ EVENTOS (CALENDARIO)
+// ===============================================================
+app.get("/api/events", verifyToken, (req, res) => {
+  db.query("SELECT * FROM events WHERE user_id = ?", [req.user.id], (err, data) => {
     if (err) return res.status(500).send(err);
-    res.send("Proyecto eliminado");
+    res.json(data);
   });
+});
+
+app.post("/api/events", verifyToken, (req, res) => {
+  const { title, date, description } = req.body;
+  db.query(
+    "INSERT INTO events (title, date, description, user_id) VALUES (?, ?, ?, ?)",
+    [title, date, description, req.user.id],
+    (err) => {
+      if (err) return res.status(500).send(err);
+      res.send("Evento agregado correctamente");
+    }
+  );
+});
+
+app.delete("/api/events/:id", verifyToken, (req, res) => {
+  db.query(
+    "DELETE FROM events WHERE id = ? AND user_id = ?",
+    [req.params.id, req.user.id],
+    (err) => {
+      if (err) return res.status(500).send(err);
+      res.send("Evento eliminado");
+    }
+  );
 });
 
 // ===============================================================
 // 🚀 SERVIDOR
 // ===============================================================
-app.listen(5000, () =>
-  console.log("🎨 PlanificArte backend en http://localhost:5000")
+app.listen(5000, '0.0.0.0', () =>
+  console.log("🎨 PlanificArte backend en http://0.0.0.0:5000")
 );

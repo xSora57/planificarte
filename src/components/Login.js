@@ -1,87 +1,48 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
-import { useNavigate } from "react-router-dom";
-import { Form, Button, Card, Alert } from "react-bootstrap";
+     import React, { useState } from 'react';
+     import { Form, Button, Container, Row, Col } from 'react-bootstrap';
 
-function Login() {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const navigate = useNavigate();
+     function Login({ loginData, setLoginData, handleLogin, handleGoogleLogin }) {
+       return (
+         <Container className="mt-5">
+           <Row className="justify-content-center">
+             <Col md={6}>
+               <div className="card shadow">
+                 <div className="card-body">
+                   <h2 className="card-title text-center">Iniciar Sesión en PlanificArte</h2>
+                   <Form>
+                     <Form.Group className="mb-3">
+                       <Form.Label>Usuario</Form.Label>
+                       <Form.Control
+                         value={loginData.username}
+                         onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
+                         placeholder="Ingresa tu usuario"
+                       />
+                     </Form.Group>
+                     <Form.Group className="mb-3">
+                       <Form.Label>Contraseña</Form.Label>
+                       <Form.Control
+                         type="password"
+                         value={loginData.password}
+                         onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                         placeholder="Ingresa tu contraseña"
+                       />
+                     </Form.Group>
+                     <div className="text-center">
+                       <Button variant="primary" onClick={handleLogin} className="me-2">
+                         Iniciar Sesión
+                       </Button>
+                       <Button variant="outline-danger" onClick={handleGoogleLogin}>
+                         <i className="bi bi-google me-2"></i>Iniciar con Google
+                       </Button>
+                     </div>
+                   </Form>
+                 </div>
+               </div>
+             </Col>
+           </Row>
+         </Container>
+       );
+     }
 
-  // Si vuelve desde Google con un token, lo guardamos automáticamente
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get("token");
-    if (token) {
-      localStorage.setItem("token", token);
-      navigate("/clients");
-    }
-  }, [navigate]);
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await axios.post("http://localhost:5000/api/login", {
-        username,
-        password,
-      });
-      localStorage.setItem("token", res.data.token);
-      navigate("/clients");
-    } catch (err) {
-      setError("Usuario o contraseña incorrectos");
-    }
-  };
-
-  return (
-    <div className="d-flex justify-content-center align-items-center vh-100 bg-light">
-      <Card className="p-4 shadow" style={{ width: "22rem" }}>
-        <h3 className="text-center mb-3">PlanificArte</h3>
-        <p className="text-center text-muted">Inicia sesión para continuar</p>
-
-        {error && <Alert variant="danger">{error}</Alert>}
-
-        <Form onSubmit={handleLogin}>
-          <Form.Group className="mb-3">
-            <Form.Label>Usuario</Form.Label>
-            <Form.Control
-              type="text"
-              placeholder="Tu usuario"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-            />
-          </Form.Group>
-
-          <Form.Group className="mb-3">
-            <Form.Label>Contraseña</Form.Label>
-            <Form.Control
-              type="password"
-              placeholder="Tu contraseña"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </Form.Group>
-
-          <Button variant="primary" type="submit" className="w-100">
-            Iniciar sesión
-          </Button>
-        </Form>
-
-        <hr className="my-3" />
-        <Button
-          variant="outline-danger"
-          className="w-100"
-          onClick={() =>
-            (window.location.href = "http://localhost:5000/auth/google")
-          }
-        >
-          <i className="bi bi-google me-2"></i> Iniciar sesión con Google
-        </Button>
-      </Card>
-    </div>
-  );
-}
-
-export default Login;
+     export default Login;
+     
