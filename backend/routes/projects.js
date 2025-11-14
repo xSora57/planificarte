@@ -25,5 +25,27 @@ router.delete("/:id", async (req, res) => {
   await Project.findByIdAndDelete(req.params.id);
   res.json({ success: true });
 });
+router.put("/:id", auth, upload.single("image"), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, client_id, status } = req.body;
+
+    let sql = "UPDATE projects SET name=?, client_id=?, status=? WHERE id=?";
+    const params = [name, client_id, status, id];
+
+    // Si sube nueva imagen
+    if (req.file) {
+      sql = "UPDATE projects SET name=?, client_id=?, status=?, image=? WHERE id=?";
+      params.splice(3, 0, req.file.filename);
+    }
+
+    await db.query(sql, params);
+
+    res.json({ message: "Proyecto actualizado" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al editar proyecto" });
+  }
+});
 
 export default router;

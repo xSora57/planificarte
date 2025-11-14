@@ -270,6 +270,62 @@ app.delete("/api/events/:id", verifyToken, (req, res) => {
     }
   );
 });
+// ===============================================================
+// 📦 STOCK
+// ===============================================================
+
+// Obtener productos del usuario
+app.get("/api/stock", verifyToken, (req, res) => {
+  db.query(
+    "SELECT * FROM stock WHERE user_id = ?",
+    [req.user.id],
+    (err, result) => {
+      if (err) return res.status(500).send(err);
+      res.json(result);
+    }
+  );
+});
+
+// Añadir producto
+app.post("/api/stock", verifyToken, upload.single("image"), (req, res) => {
+  const { name, quantity } = req.body;
+  const image = req.file ? req.file.filename : null;
+
+  db.query(
+    "INSERT INTO stock (name, quantity, image, user_id) VALUES (?, ?, ?, ?)",
+    [name, quantity || 0, image, req.user.id],
+    (err) => {
+      if (err) return res.status(500).send(err);
+      res.send("Producto agregado correctamente");
+    }
+  );
+});
+
+// Actualizar cantidad (+ o -)
+app.put("/api/stock/:id", verifyToken, (req, res) => {
+  const { change } = req.body; // +1 o -1
+
+  db.query(
+    "UPDATE stock SET quantity = quantity + ? WHERE id = ? AND user_id = ?",
+    [change, req.params.id, req.user.id],
+    (err) => {
+      if (err) return res.status(500).send(err);
+      res.send("Stock actualizado");
+    }
+  );
+});
+
+// Eliminar producto
+app.delete("/api/stock/:id", verifyToken, (req, res) => {
+  db.query(
+    "DELETE FROM stock WHERE id = ? AND user_id = ?",
+    [req.params.id, req.user.id],
+    (err) => {
+      if (err) return res.status(500).send(err);
+      res.send("Producto eliminado");
+    }
+  );
+});
 
 // ===============================================================
 // 🚀 SERVIDOR
