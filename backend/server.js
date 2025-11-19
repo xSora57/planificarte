@@ -14,12 +14,30 @@ import fs from "fs";
 // ⚙️ CONFIGURACIÓN GENERAL
 // ===============================================================
 const app = express();
-app.use(cors({ origin: ["http://localhost:3000", "http://192.168.0.145:3000"], credentials: true }));
+
+app.use(cors({
+  origin: ["http://localhost:3000", "http://192.168.0.145:3000"],
+  credentials: true
+}));
+
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
-
 const SECRET_KEY = "planificarte_secret_key";
+// ===============================================================
+// 🧱 MIDDLEWARE: VERIFICAR TOKEN
+// ===============================================================
+const verifyToken = (req, res, next) => {
+  const header = req.headers["authorization"];
+  const token = header && header.split(" ")[1];
 
+  if (!token) return res.status(401).send("Token no proporcionado");
+
+  jwt.verify(token, SECRET_KEY, (err, user) => {
+    if (err) return res.status(403).send("Token inválido");
+    req.user = user;
+    next();
+  });
+};
 // ===============================================================
 // 🗄️ CONEXIÓN MYSQL
 // ===============================================================
@@ -58,7 +76,7 @@ app.use(
 );
 app.use(passport.initialize());
 app.use(passport.session());
-app.use(cors({ origin: ["http://localhost:3000", "192.168.0.145:3000"], credentials: true }));
+app.use(cors({ origin: ["http://localhost:3000", "http://192.168.0.145:3000"], credentials: true }));
 // ===============================================================
 // 🔑 ESTRATEGIA GOOGLE
 // ===============================================================
@@ -104,21 +122,7 @@ passport.use(
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((user, done) => done(null, user));
 
-// ===============================================================
-// 🧱 MIDDLEWARE: VERIFICAR TOKEN
-// ===============================================================
-const verifyToken = (req, res, next) => {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
 
-  if (!token) return res.status(401).send("Token no proporcionado");
-
-  jwt.verify(token, SECRET_KEY, (err, user) => {
-    if (err) return res.status(403).send("Token inválido");
-    req.user = user;
-    next();
-  });
-};
 
 // ===============================================================
 // 🧑‍💻 LOGIN LOCAL
@@ -236,6 +240,29 @@ app.delete("/api/projects/:id", verifyToken, (req, res) => {
       res.send("Proyecto eliminado");
     }
   );
+});
+// ===============================================================
+// ✏️ EDITAR PROYECTO
+// ===============================================================
+app.put("/api/projects/:id", verifyToken, upload.single("image"), (req, res) => {
+  const { name, client_id, status } = req.body;
+  const image = req.file ? req.file.filename : null;
+
+  let sql = "UPDATE projects SET name = ?, client_id = ?, status = ?";
+  const params = [name, client_id || null, status];
+
+  if (image) {
+    sql += ", image = ?";
+    params.push(image);
+  }
+
+  sql += " WHERE id = ? AND user_id = ?";
+  params.push(req.params.id, req.user.id);
+
+  db.query(sql, params, (err) => {
+    if (err) return res.status(500).send(err);
+    res.send("Proyecto actualizado correctamente");
+  });
 });
 
 // ===============================================================

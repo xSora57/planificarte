@@ -462,7 +462,13 @@ const deleteProduct = async (id) => {
             <div className="row mt-3">
               <div className="col-md-6">
                 <Calendar
-                  onChange={setSelectedDate}
+                  onChange={(date) => {
+                    setSelectedDate(date);
+                    setNewEvent((prev) => ({
+                      ...prev,
+                      date: date.toISOString().split("T")[0],
+                    }));
+                  }}
                   value={selectedDate}
                   className="shadow-sm rounded"
                 />
@@ -471,35 +477,25 @@ const deleteProduct = async (id) => {
               <div className="col-md-6">
                 <h5>Eventos del día:</h5>
                 <ul className="list-group">
-                  {events
-                    .filter((e) => {
-                      const selected = selectedDate
-                        .toISOString()
-                        .split("T")[0];
-                      return e.date === selected;
-                    })
-                    .map((e) => (
-                      <li
-                        key={e.id}
-                        className="list-group-item d-flex justify-content-between"
-                      >
-                        <div>
-                          <strong>{e.title}</strong>
-                          <br />
-                          <small className="text-muted">
-                            {e.description}
-                          </small>
-                        </div>
+{events
+  .filter((e) => {
+    const eventDate = new Date(e.date).toISOString().split("T")[0];
+    const selected = selectedDate.toISOString().split("T")[0];
+    return eventDate === selected;
+  })
+  .map((e) => (
+    <li key={e.id} className="list-group-item d-flex justify-content-between">
+      <div>
+        <strong>{e.title}</strong>
+        <br />
+        <small className="text-muted">{e.description}</small>
+      </div>
+      <Button variant="danger" size="sm" onClick={() => deleteEvent(e.id)}>
+        🗑
+      </Button>
+    </li>
+  ))}
 
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          onClick={() => deleteEvent(e.id)}
-                        >
-                          🗑
-                        </Button>
-                      </li>
-                    ))}
                 </ul>
               </div>
             </div>
@@ -666,11 +662,14 @@ const deleteProduct = async (id) => {
         {/* MODAL PROYECTO */}
         <Modal show={showProjectModal} onHide={() => setShowProjectModal(false)}>
           <Modal.Header closeButton>
-            <Modal.Title>Nuevo Proyecto</Modal.Title>
+            <Modal.Title>
+              {newProject.id ? "Editar Proyecto" : "Nuevo Proyecto"}
+            </Modal.Title>
           </Modal.Header>
-          <Modal.Body>
+
+          <Modal.Body className="p-3">
             <Form>
-              <Form.Group>
+              <Form.Group className="mb-3">
                 <Form.Label>Nombre</Form.Label>
                 <Form.Control
                   value={newProject.name}
@@ -680,7 +679,7 @@ const deleteProduct = async (id) => {
                 />
               </Form.Group>
 
-              <Form.Group>
+              <Form.Group className="mb-3">
                 <Form.Label>Cliente</Form.Label>
                 <Form.Select
                   value={newProject.client_id}
@@ -697,7 +696,7 @@ const deleteProduct = async (id) => {
                 </Form.Select>
               </Form.Group>
 
-              <Form.Group>
+              <Form.Group className="mb-3">
                 <Form.Label>Estado</Form.Label>
                 <Form.Select
                   value={newProject.status}
@@ -711,7 +710,7 @@ const deleteProduct = async (id) => {
                 </Form.Select>
               </Form.Group>
 
-              <Form.Group>
+              <Form.Group className="mb-3">
                 <Form.Label>Imagen (opcional)</Form.Label>
                 <Form.Control
                   type="file"
@@ -728,7 +727,7 @@ const deleteProduct = async (id) => {
               Cancelar
             </Button>
             <Button variant="primary" onClick={addProject}>
-              Guardar
+              {newProject.id ? "Guardar Cambios" : "Guardar"}
             </Button>
           </Modal.Footer>
         </Modal>
