@@ -4,16 +4,20 @@ import { Modal, Button, Form } from "react-bootstrap";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import "./App.css";
+import confetti from "canvas-confetti";
 
+/* ------------------------------
+   CONFIGURACIÓN DE BACKEND
+--------------------------------*/
 const isLocalhost = window.location.hostname === "localhost";
 const backendURL = isLocalhost
   ? "http://localhost:5000"
   : "http://192.168.0.145:5000";
 
-// Instancia global de axios
+// Instancia de Axios
 const api = axios.create({ baseURL: backendURL });
 
-// Interceptor global – siempre usa el token del localStorage
+// Interceptor para añadir token automáticamente
 api.interceptors.request.use(
   (config) => {
     const storedToken = localStorage.getItem("token");
@@ -25,21 +29,29 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+/* ==============================
+   COMPONENTE PRINCIPAL
+================================*/
 function App() {
+  /* ------------------------------
+     ESTADOS PRINCIPALES
+  --------------------------------*/
   const [activeTab, setActiveTab] = useState("clients");
   const [clients, setClients] = useState([]);
   const [projects, setProjects] = useState([]);
   const [events, setEvents] = useState([]);
   const [stock, setStock] = useState([]);
 
+  const [selectedDate, setSelectedDate] = useState(new Date());
+
   const [showClientModal, setShowClientModal] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
   const [showStockModal, setShowStockModal] = useState(false);
 
-  const [selectedDate, setSelectedDate] = useState(new Date());
-
-  // Formularios
+  /* ------------------------------
+     FORMULARIOS
+  --------------------------------*/
   const [newClient, setNewClient] = useState({
     name: "",
     email: "",
@@ -65,12 +77,41 @@ function App() {
     image: null,
   });
 
-  // Login
+  /* ------------------------------
+     LOGIN
+  --------------------------------*/
   const [token, setToken] = useState(localStorage.getItem("token") || "");
   const [isLoggedIn, setIsLoggedIn] = useState(!!token);
   const [loginData, setLoginData] = useState({ username: "", password: "" });
-  const [showLoginModal, setShowLoginModal] = useState(!isLoggedIn);
 
+  /* ------------------------------
+     XP Y NIVELES
+  --------------------------------*/
+  const [xpInfo, setXpInfo] = useState({ xp: 0, level: 1 });
+  const [oldLevel, setOldLevel] = useState(1); // para detectar subida de nivel
+
+  const getXP = async () => {
+    try {
+      const res = await api.get("/api/user/xp");
+
+      const newLevel = res.data.level;
+
+      // Detectar subida de nivel
+      if (newLevel > oldLevel) {
+        confetti();
+        alert(`¡Subiste a nivel ${newLevel}! 🎉`);
+      }
+
+      setOldLevel(newLevel);
+      setXpInfo(res.data);
+    } catch (err) {
+      console.error("Error obteniendo XP", err);
+    }
+  };
+
+  /* ------------------------------
+     LOGIN HANDLERS
+  --------------------------------*/
   const handleLogin = async () => {
     try {
       const res = await axios.post(`${backendURL}/api/login`, loginData);
@@ -79,7 +120,7 @@ function App() {
       localStorage.setItem("token", newToken);
       setToken(newToken);
       setIsLoggedIn(true);
-    } catch (err) {
+    } catch {
       alert("Credenciales incorrectas");
     }
   };
@@ -93,7 +134,9 @@ function App() {
     setIsLoggedIn(false);
   };
 
-  // Callback OAuth
+  /* ------------------------------
+     CALLBACK OAuth
+  --------------------------------*/
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const tokenFromUrl = urlParams.get("token");
@@ -106,74 +149,26 @@ function App() {
     }
   }, []);
 
+  /* ------------------------------
+     FETCH GENERAL
+  --------------------------------*/
   const getClients = useCallback(async () => {
     try {
       const res = await api.get("/api/clients");
       setClients(res.data);
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
     }
   }, []);
-
-  const addClient = async () => {
-    try {
-      await api.post("/api/clients", newClient);
-      setShowClientModal(false);
-      setNewClient({ name: "", email: "", phone: "" });
-      getClients();
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const deleteClient = async (id) => {
-    try {
-      await api.delete(`/api/clients/${id}`);
-      getClients();
-    } catch (error) {
-      console.error(error);
-    }
-  };
 
   const getProjects = useCallback(async () => {
     try {
       const res = await api.get("/api/projects");
       setProjects(res.data);
-    } catch (error) {
-      console.error(error);
-    }
-  }, []);
-
-    const addProject = async () => {
-      try {
-        const formData = new FormData();
-        formData.append("name", newProject.name);
-        formData.append("client_id", newProject.client_id);
-        formData.append("status", newProject.status);
-        if (newProject.image) formData.append("image", newProject.image);
-
-        if (newProject.id) {
-          await api.put(`/api/projects/${newProject.id}`, formData);
-        } else {
-          await api.post("/api/projects", formData);
-        }
-
-        setShowProjectModal(false);
-        setNewProject({ name: "", client_id: "", status: "En progreso", image: null });
-        getProjects();
-      } catch (err) {
-        console.error("Error al guardar proyecto:", err);
-      }
-    };
-
-  const deleteProject = async (id) => {
-    try {
-      await api.delete(`/api/projects/${id}`);
-      getProjects();
     } catch (err) {
       console.error(err);
     }
-  };
+  }, []);
 
   const getEvents = useCallback(async () => {
     try {
@@ -184,26 +179,6 @@ function App() {
     }
   }, []);
 
-  const addEvent = async () => {
-    try {
-      await api.post("/api/events", newEvent);
-      setShowEventModal(false);
-      setNewEvent({ title: "", date: "", description: "" });
-      getEvents();
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const deleteEvent = async (id) => {
-    try {
-      await api.delete(`/api/events/${id}`);
-      getEvents();
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
   const getStock = useCallback(async () => {
     try {
       const res = await api.get("/api/stock");
@@ -213,52 +188,22 @@ function App() {
     }
   }, []);
 
-  const addProduct = async () => {
-    try {
-      const formData = new FormData();
-      formData.append("name", newProduct.name);
-      formData.append("quantity", newProduct.quantity);
-      if (newProduct.image) formData.append("image", newProduct.image);
-
-      await api.post("/api/stock", formData);
-
-      setShowStockModal(false);
-      setNewProduct({ name: "", quantity: 0, image: null });
-      getStock();
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const changeStock = async (id, value) => {
-    try {
-      await api.put(`/api/stock/${id}`, { change: value });
-      getStock();
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-const deleteProduct = async (id) => {
-  if (!window.confirm("¿Eliminar este producto del stock?")) return;
-
-  try {
-    await api.delete(`/api/stock/${id}`);
-    getStock();
-  } catch (err) {
-    console.error("Error al eliminar producto:", err);
-  }
-};
-
+  /* ------------------------------
+     CARGAR DATOS AL HACER LOGIN
+  --------------------------------*/
   useEffect(() => {
     if (isLoggedIn) {
       getClients();
       getProjects();
       getEvents();
       getStock();
+      getXP();
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, getClients, getProjects, getEvents, getStock]);
 
+  /* ------------------------------
+     SI NO ESTÁ LOGEADO → LOGIN
+  --------------------------------*/
   if (!isLoggedIn) {
     return (
       <div className="d-flex justify-content-center align-items-center vh-100">
@@ -302,16 +247,141 @@ const deleteProduct = async (id) => {
     );
   }
 
+  /* ------------------------------
+     CRUD CLIENTES
+  --------------------------------*/
+  const addClient = async () => {
+    try {
+      await api.post("/api/clients", newClient);
+      setShowClientModal(false);
+      setNewClient({ name: "", email: "", phone: "" });
+      getClients();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const deleteClient = async (id) => {
+    await api.delete(`/api/clients/${id}`);
+    getClients();
+  };
+
+  /* ------------------------------
+     CRUD PROYECTOS
+  --------------------------------*/
+  const addProject = async () => {
+    try {
+      const formData = new FormData();
+      formData.append("name", newProject.name);
+      formData.append("client_id", newProject.client_id);
+      formData.append("status", newProject.status);
+      if (newProject.image) formData.append("image", newProject.image);
+
+      if (newProject.id) {
+        await api.put(`/api/projects/${newProject.id}`, formData);
+      } else {
+        await api.post("/api/projects", formData);
+      }
+
+      setShowProjectModal(false);
+      setNewProject({
+        name: "",
+        client_id: "",
+        status: "En progreso",
+        image: null,
+      });
+      getProjects();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const deleteProject = async (id) => {
+    await api.delete(`/api/projects/${id}`);
+    getProjects();
+  };
+
+  /* ------------------------------
+     CRUD EVENTOS
+  --------------------------------*/
+  const addEvent = async () => {
+    await api.post("/api/events", newEvent);
+    setShowEventModal(false);
+    setNewEvent({ title: "", date: "", description: "" });
+    getEvents();
+  };
+
+  const deleteEvent = async (id) => {
+    await api.delete(`/api/events/${id}`);
+    getEvents();
+  };
+
+  /* ------------------------------
+     CRUD STOCK
+  --------------------------------*/
+  const addProduct = async () => {
+    try {
+      const formData = new FormData();
+      formData.append("name", newProduct.name);
+      formData.append("quantity", newProduct.quantity);
+      if (newProduct.image) formData.append("image", newProduct.image);
+
+      await api.post("/api/stock", formData);
+
+      setShowStockModal(false);
+      setNewProduct({ name: "", quantity: 0, image: null });
+      getStock();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const changeStock = async (id, value) => {
+    await api.put(`/api/stock/${id}`, { change: value });
+    getStock();
+  };
+
+  const deleteProduct = async (id) => {
+    if (!window.confirm("¿Eliminar este producto del stock?")) return;
+    await api.delete(`/api/stock/${id}`);
+    getStock();
+  };
+
+  /* ------------------------------
+     RENDER
+  --------------------------------*/
   return (
     <div>
-      {/* NAVBAR */}
+      {/* ---------------- NAVBAR ---------------- */}
       <nav className="navbar navbar-dark bg-dark p-2">
-        <span className="navbar-brand">🎨 PlanificArte</span>
+        <span className="navbar-brand">🎨 P l a n i f i c A r t e</span>
+
+        <div className="text-white d-flex align-items-center gap-3">
+          <strong>Nivel {xpInfo.level}</strong>
+
+          {/* Barra XP */}
+          <div
+            className="progress"
+            style={{ width: "150px", height: "8px", background: "#444" }}
+          >
+            <div
+              className="progress-bar bg-success"
+              style={{
+                width: `${Math.min(
+                  (xpInfo.xp / (xpInfo.level * 100)) * 100,
+                  100
+                )}%`,
+              }}
+            ></div>
+          </div>
+        </div>
+
         <Button variant="outline-light" onClick={handleLogout}>
           Cerrar Sesión
         </Button>
       </nav>
 
+      {/* ---------------- CONTENIDO ---------------- */}
       <div className="container mt-3">
         <h2>Bienvenido a PlanificArte 🎨</h2>
 

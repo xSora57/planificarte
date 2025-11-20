@@ -360,3 +360,133 @@ app.delete("/api/stock/:id", verifyToken, (req, res) => {
 app.listen(5000, '0.0.0.0', () =>
   console.log("🎨 PlanificArte backend en http://0.0.0.0:5000")
 );
+
+function addXP(userId, amount, callback) {
+  db.query(
+    "SELECT xp, level FROM users WHERE id = ?",
+    [userId],
+    (err, result) => {
+      if (err) return callback(err);
+
+      let { xp, level } = result[0];
+      xp += amount;
+
+      // Sistema de niveles: cada nivel requiere 100 XP
+      const requiredXP = level * 100;
+
+      // Subida de nivel
+      if (xp >= requiredXP) {
+        level++;
+        xp = xp - requiredXP;
+      }
+
+      db.query(
+        "UPDATE users SET xp = ?, level = ? WHERE id = ?",
+        [xp, level, userId],
+        (updateErr) => {
+          if (updateErr) return callback(updateErr);
+          callback(null, { xp, level });
+        }
+      );
+    }
+  );
+}
+
+app.get("/api/user/xp", verifyToken, (req, res) => {
+  db.query("SELECT xp, level FROM user_xp WHERE user_id = ?", [req.user.id], (err, rows) => {
+    if (err) return res.status(500).send(err);
+    if (rows.length === 0) return res.json({ xp: 0, level: 1 });
+    res.json(rows[0]);
+  });
+});
+
+// Obtener misiones activas
+app.get("/api/missions", verifyToken, (req, res) => {
+  db.query("SELECT * FROM missions WHERE active = 1", (err, rows) => {
+    if (err) return res.status(500).send(err);
+    res.json(rows);
+  });
+});
+
+// Obtener misiones del usuario
+app.get("/api/user/missions", verifyToken, (req, res) => {
+  const sql = `
+    SELECT m.*, um.completed, um.completed_date
+    FROM missions m
+    LEFT JOIN user_missions um ON m.id = um.mission_id AND um.user_id = ?
+    WHERE m.active = 1
+  `;
+  db.query(sql, [req.user.id], (err, rows) => {
+    if (err) return res.status(500).send(err);
+    res.json(rows);
+  });
+});
+
+// Completar misión
+app.post("/api/user/missions/:missionId/complete", verifyToken, (req, res) => {
+  const missionId = req.params.missionId;
+  const today = new Date().toISOString().split("T")[0];
+
+  db.query("SELECT xp_reward FROM missions WHERE id = ?", [missionId], (err, missionRows) => {
+    if (err) return res.status(500).send(err);
+
+    const xpReward = missionRows[0]?.xp_reward || 0;
+
+    const sql = `
+      INSERT INTO user_missions (user_id, mission_id, completed_date, completed)
+      VALUES (?, ?, ?, TRUE)
+      ON DUPLICATE KEY UPDATE completed = TRUE, completed_date = ?
+    `;
+    db.query(sql, [req.user.id, missionId, today, today], (err2) => {
+      if (err2) return res.status(500).send(err2);
+
+      // Actualizar XP
+      db.query("SELECT xp, level FROM user_xp WHERE user_id = ?", [req.user.id], (err3, rowsXp) => {
+        if (err3) return res.status(500).send(err3);
+
+        let xp = rowsXp[0]?.xp || 0;
+        let level = rowsXp[0]?.level || 1;
+
+        xp += xpReward;
+        let newLevel = Math.floor(xp / 100) + 1;
+
+        db.query(
+          "INSERT INTO user_xp (user_id, xp, level) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE xp=?, level=?",
+          [req.user.id, xp, newLevel, xp, newLevel],
+          (err4) => {
+            if (err4) return res.status(500).send(err4);
+            res.json({ added: xpReward, newXp: xp, newLevel });
+          }
+        );
+      });
+    });
+  });
+});
+
+// Obtener logros
+app.get("/api/achievements", verifyToken, (req, res) => {
+  const sql = `
+    SELECT a.*, ua.achieved_date
+    FROM achievements a
+    LEFT JOIN user_achievements ua ON a.id = ua.achievement_id AND ua.user_id = ?
+  `;
+  db.query(sql, [req.user.id], (err, rows) => {
+    if (err) return res.status(500).send(err);
+    res.json(rows);
+  });
+});
+
+// Registrar logro desbloqueado
+app.post("/api/user/achievements/:achievementId", verifyToken, (req, res) => {
+  db.query(
+    "INSERT INTO user_achievements (user_id, achievement_id, achieved_date) VALUES (?, ?, NOW())",
+    [req.user.id, req.params.achievementId],
+    (err) => {
+      if (err) {
+        if (err.code === "ER_DUP_ENTRY") return res.status(200).send("Already achieved");
+        return res.status(500).send(err);
+      }
+      res.send("Achievement saved");
+    }
+  );
+});
