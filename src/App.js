@@ -6,9 +6,7 @@ import "react-calendar/dist/Calendar.css";
 import "./App.css";
 import confetti from "canvas-confetti";
 
-/* ------------------------------
-   CONFIG BACKEND
---------------------------------*/
+/* CONFIG BACKEND */
 const isLocalhost = window.location.hostname === "localhost";
 const backendURL = isLocalhost ? "http://localhost:5000" : "http://192.168.0.145:5000";
 
@@ -23,11 +21,9 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-/* ==============================
-   APP
-===============================*/
+/* APP */
 function App() {
-  /* ---------- Estados ---------- */
+  /*  Estados  */
   const [activeTab, setActiveTab] = useState("clients"); // views: clients, projects, calendar, stock, profile, achievements
   const [clients, setClients] = useState([]);
   const [projects, setProjects] = useState([]);
@@ -57,7 +53,7 @@ function App() {
   const [xpInfo, setXpInfo] = useState({ xp: 0, level: 1 });
   const [oldLevel, setOldLevel] = useState(1); // para detectar subida
 
-  /* ---------- Helpers ---------- */
+  /*  Helpers  */
   const decodeTokenUsername = () => {
     try {
       const t = localStorage.getItem("token");
@@ -69,7 +65,7 @@ function App() {
     }
   };
 
-  /* ---------- Fetchers ---------- */
+  /*  Fetchers  */
   const getClients = useCallback(async () => {
     try {
       const res = await api.get("/api/clients");
@@ -110,10 +106,9 @@ function App() {
     try {
       const res = await api.get("/api/user/xp");
       const newLevel = res.data.level || 1;
-      // si subió de nivel -> confetti
       if (newLevel > oldLevel) {
         confetti();
-        // opcional: reproducir sonido aquí
+        
       }
       setOldLevel(newLevel);
       setXpInfo(res.data);
@@ -131,7 +126,7 @@ function App() {
     }
   }, []);
 
-  /* ---------- Login handlers ---------- */
+  /*  Login handlers  */
   const handleLogin = async () => {
     try {
       const res = await axios.post(`${backendURL}/api/login`, loginData);
@@ -154,7 +149,7 @@ function App() {
     setToken("");
   };
 
-  /* ---------- On login, cargar datos ---------- */
+  /*  On login, cargar datos  */
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const tokenFromUrl = urlParams.get("token");
@@ -187,7 +182,7 @@ function App() {
     }
   };
 
-  /* ---------- CRUD Clientes ---------- */
+  /*  CRUD Clientes  */
   const addClient = async () => {
     try {
       await api.post("/api/clients", newClient);
@@ -211,7 +206,7 @@ function App() {
     }
   };
 
-  /* ---------- CRUD Proyectos ---------- */
+  /*  CRUD Proyectos  */
   const addProject = async () => {
     try {
       const formData = new FormData();
@@ -231,7 +226,7 @@ function App() {
       setShowProjectModal(false);
       setNewProject({ name: "", client_id: "", status: "En progreso", image: null });
       await getProjects();
-      await addXP(newProject.id ? 15 : 25); // editar: +15, crear: +25
+      await addXP(newProject.id ? 15 : 25); 
     } catch (err) {
       console.error("addProject:", err);
     }
@@ -246,7 +241,7 @@ function App() {
     }
   };
 
-  /* ---------- CRUD Eventos ---------- */
+  /*  CRUD Eventos  */
   const addEvent = async () => {
     try {
       await api.post("/api/events", newEvent);
@@ -269,7 +264,7 @@ function App() {
     }
   };
 
-  /* ---------- CRUD Stock ---------- */
+  /*  CRUD Stock  */
   const addProduct = async () => {
     try {
       const formData = new FormData();
@@ -307,7 +302,7 @@ function App() {
     }
   };
 
-  /* ---------- Achievements (logros) ---------- */
+  /*  Achievements (logros)  */
   const claimAchievement = async (achievementId) => {
     try {
       await api.post(`/api/user/achievements/${achievementId}`);
@@ -319,7 +314,7 @@ function App() {
     }
   };
 
-  /* ---------- UI ---------- */
+  /*  UI  */
   if (!isLoggedIn) {
     return (
       <div className="d-flex justify-content-center align-items-center vh-100">
@@ -545,7 +540,7 @@ function App() {
         </div>
       </div>
 
-      {/* ---------- MODALS ---------- */}
+      {/*  MODALS  */}
 
       {/* EVENT */}
       <Modal show={showEventModal} onHide={() => setShowEventModal(false)}>

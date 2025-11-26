@@ -10,9 +10,7 @@ import session from "express-session";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import fs from "fs";
 
-// ===============================================================
-// ⚙️ CONFIGURACIÓN GENERAL
-// ===============================================================
+// CONFIGURACIÓN GENERAL
 const app = express();
 
 app.use(cors({
@@ -23,9 +21,7 @@ app.use(cors({
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 const SECRET_KEY = "planificarte_secret_key";
-// ===============================================================
-// 🧱 MIDDLEWARE: VERIFICAR TOKEN
-// ===============================================================
+// MIDDLEWARE: VERIFICAR TOKEN
 const verifyToken = (req, res, next) => {
   const header = req.headers["authorization"];
   const token = header && header.split(" ")[1];
@@ -38,9 +34,7 @@ const verifyToken = (req, res, next) => {
     next();
   });
 };
-// ===============================================================
-// 🗄️ CONEXIÓN MYSQL
-// ===============================================================
+// CONEXIÓN MYSQL
 const db = mysql.createConnection({
   host: "localhost",
   port: 3306,
@@ -54,9 +48,7 @@ db.connect((err) => {
   else console.log("✅ Conectado a MySQL");
 });
 
-// ===============================================================
-// 🖼️ CONFIGURACIÓN DE MULTER
-// ===============================================================
+// CONFIGURACIÓN DE MULTER
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, "uploads/"),
   filename: (req, file, cb) =>
@@ -64,9 +56,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// ===============================================================
-// 🔐 SESIONES + PASSPORT
-// ===============================================================
+// SESIONES + PASSPORT
 app.use(
   session({
     secret: "planificarte_session",
@@ -77,9 +67,8 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(cors({ origin: ["http://localhost:3000", "http://192.168.0.145:3000"], credentials: true }));
-// ===============================================================
-// 🔑 ESTRATEGIA GOOGLE
-// ===============================================================
+
+// ESTRATEGIA GOOGLE
 const googleConfig = JSON.parse(
   fs.readFileSync(
     "./client_secret_399007858065-p8kv5inj7ebqcb7aaoks3kp7kpidjpjk.apps.googleusercontent.com.json"
@@ -124,9 +113,8 @@ passport.deserializeUser((user, done) => done(null, user));
 
 
 
-// ===============================================================
-// 🧑‍💻 LOGIN LOCAL
-// ===============================================================
+
+// LOGIN LOCAL
 app.post("/api/login", (req, res) => {
   const { username, password } = req.body;
 
@@ -147,9 +135,7 @@ app.post("/api/login", (req, res) => {
   });
 });
 
-// ===============================================================
-// 🔑 LOGIN CON GOOGLE
-// ===============================================================
+//  LOGIN CON GOOGLE
 app.get(
   "/auth/google",
   passport.authenticate("google", { scope: ["profile", "email"] })
@@ -168,9 +154,8 @@ app.get(
   }
 );
 
-// ===============================================================
-// 👥 CLIENTES
-// ===============================================================
+
+//  CLIENTES
 app.get("/api/clients", verifyToken, (req, res) => {
   db.query("SELECT * FROM clients WHERE user_id = ?", [req.user.id], (err, data) => {
     if (err) return res.status(500).send(err);
@@ -201,9 +186,7 @@ app.delete("/api/clients/:id", verifyToken, (req, res) => {
   );
 });
 
-// ===============================================================
-// 🎨 PROYECTOS
-// ===============================================================
+// PROYECTOS
 app.get("/api/projects", verifyToken, (req, res) => {
   const sql = `
     SELECT projects.*, clients.name AS client_name
@@ -241,9 +224,8 @@ app.delete("/api/projects/:id", verifyToken, (req, res) => {
     }
   );
 });
-// ===============================================================
-// ✏️ EDITAR PROYECTO
-// ===============================================================
+
+// EDITAR PROYECTO
 app.put("/api/projects/:id", verifyToken, upload.single("image"), (req, res) => {
   const { name, client_id, status } = req.body;
   const image = req.file ? req.file.filename : null;
@@ -265,9 +247,7 @@ app.put("/api/projects/:id", verifyToken, upload.single("image"), (req, res) => 
   });
 });
 
-// ===============================================================
-// 🗓️ EVENTOS (CALENDARIO)
-// ===============================================================
+// EVENTOS (CALENDARIO)
 app.get("/api/events", verifyToken, (req, res) => {
   db.query("SELECT * FROM events WHERE user_id = ?", [req.user.id], (err, data) => {
     if (err) return res.status(500).send(err);
@@ -297,9 +277,9 @@ app.delete("/api/events/:id", verifyToken, (req, res) => {
     }
   );
 });
-// ===============================================================
-// 📦 STOCK
-// ===============================================================
+
+// STOCK
+
 
 // Obtener productos del usuario
 app.get("/api/stock", verifyToken, (req, res) => {
@@ -354,9 +334,9 @@ app.delete("/api/stock/:id", verifyToken, (req, res) => {
   );
 });
 
-// ===============================================================
-// 🚀 SERVIDOR
-// ===============================================================
+
+// SERVIDOR
+
 app.listen(5000, '0.0.0.0', () =>
   console.log("🎨 PlanificArte backend en http://0.0.0.0:5000")
 );
