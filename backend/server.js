@@ -279,8 +279,6 @@ app.delete("/api/events/:id", verifyToken, (req, res) => {
 });
 
 // STOCK
-
-
 // Obtener productos del usuario
 app.get("/api/stock", verifyToken, (req, res) => {
   db.query(
@@ -343,46 +341,59 @@ app.listen(5000, '0.0.0.0', () =>
 
 function addXP(userId, xpReward, callback) {
   db.query(
-    "SELECT xp, level FROM user_xp WHERE user_id = ?",
+    "SELECT xp, level, points FROM user_xp WHERE user_id = ?",
     [userId],
     (err, rows) => {
       if (err) return callback(err);
 
       let xp = rows[0]?.xp || 0;
       let level = rows[0]?.level || 1;
+      let points = rows[0]?.points || 0;
 
       xp += xpReward;
+
+      let levelsGained = 0;
 
       // Subida de nivel (nivel * 100)
       while (xp >= level * 100) {
         xp -= level * 100;
         level++;
+        levelsGained++;
       }
+
+      // 🎁 Cada nivel ganado = +5 puntos (ajusta si quieres)
+      points += levelsGained * 5;
 
       db.query(
         `
-        INSERT INTO user_xp (user_id, xp, level)
-        VALUES (?, ?, ?)
-        ON DUPLICATE KEY UPDATE xp=?, level=?
+        INSERT INTO user_xp (user_id, xp, level, points)
+        VALUES (?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE xp=?, level=?, points=?
         `,
-        [userId, xp, level, xp, level],
+        [userId, xp, level, points, xp, level, points],
         (err2) => {
           if (err2) return callback(err2);
-          callback(null, { xp, level });
+          callback(null, { xp, level, points });
         }
       );
     }
   );
 }
 
-
 app.get("/api/user/xp", verifyToken, (req, res) => {
-  db.query("SELECT xp, level FROM user_xp WHERE user_id = ?", [req.user.id], (err, rows) => {
-    if (err) return res.status(500).send(err);
-    if (rows.length === 0) return res.json({ xp: 0, level: 1 });
-    res.json(rows[0]);
-  });
+  db.query(
+    "SELECT xp, level, points FROM user_xp WHERE user_id = ?",
+    [req.user.id],
+    (err, rows) => {
+      if (err) return res.status(500).send(err);
+      if (rows.length === 0)
+        return res.json({ xp: 0, level: 1, points: 0 });
+
+      res.json(rows[0]);
+    }
+  );
 });
+
 
 app.post("/api/user/missions/:missionId/complete", verifyToken, (req, res) => {
   const missionId = req.params.missionId;
@@ -488,5 +499,96 @@ app.post("/api/user/xp/add", verifyToken, (req, res) => {
       xp: result.xp,
       level: result.level,
     });
+  });
+});
+
+app.post("/api/register", async (req, res) => {
+  const { username, email, password } = req.body;
+
+  if (!username || !email || !password)
+    return res.status(400).send("Faltan datos");
+
+  db.query("SELECT * FROM users WHERE email = ? OR username = ?", 
+    [email, username], 
+    async (err, results) => {
+      if (results.length > 0) {
+        return res.status(400).send("Usuario o email ya está en uso");
+      }
+
+      const hashed = await bcrypt.hash(password, 10);
+
+      db.query(
+        "INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
+        [username, email, hashed],
+        (err2, result) => {
+          if (err2) return res.status(500).send(err2);
+
+          // Crear fila en XP
+          db.query(
+            "INSERT INTO user_xp (user_id, xp, level, points) VALUES (?, 0, 1, 0)",
+            [result.insertId]
+          );
+
+          res.send("Usuario registrado");
+        }
+      );
+    }
+  );
+});
+
+app.get("/api/shop", verifyToken, (req, res) => {
+  db.query("SELECT * FROM shop_items", (err, rows) => {
+    if (err) return res.status(500).send(err);
+    res.json(rows);
+  });
+});
+
+app.post("/api/shop/buy/:itemId", verifyToken, (req, res) => {
+  const itemId = req.params.itemId;
+
+  db.query("SELECT price FROM shop_items WHERE id = ?", [itemId], (err, rows) => {
+    if (!rows.length) return res.status(404).send("Item no existe");
+
+    const price = rows[0].price;
+
+    db.query("SELECT points FROM user_xp WHERE user_id = ?", [req.user.id], (err2, xpRows) => {
+      const points = xpRows[0].points;
+
+      if (points < price) return res.status(400).send("No tienes puntos suficientes");
+
+      // Registrar compra
+      db.query(
+        "INSERT INTO user_shop (user_id, item_id, unlocked_date) VALUES (?, ?, NOW())",
+        [req.user.id, itemId]
+      );
+
+      // Restar puntos
+      db.query(
+        "UPDATE user_xp SET points = points - ? WHERE user_id = ?",
+        [price, req.user.id]
+      );
+
+      res.send("Item comprado");
+    });
+  });
+});
+app.post("/api/user/avatar", verifyToken, upload.single("avatar"), (req, res) => {
+  if (!req.file) return res.status(400).send("No se subió imagen");
+
+  const avatarPath = req.file.filename;
+
+  db.query(
+    "UPDATE users SET avatar = ? WHERE id = ?",
+    [avatarPath, req.user.id],
+    (err) => {
+      if (err) return res.status(500).send(err);
+      res.json({ avatar: avatarPath });
+    }
+  );
+});
+app.get("/api/user/profile", verifyToken, (req, res) => {
+  db.query("SELECT username, email, avatar FROM users WHERE id = ?", [req.user.id], (err, rows) => {
+    if (err) return res.status(500).send(err);
+    res.json(rows[0]);
   });
 });

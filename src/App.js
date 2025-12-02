@@ -37,6 +37,8 @@ function App() {
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
   const [showStockModal, setShowStockModal] = useState(false);
+  const [shopItems, setShopItems] = useState([]);
+  const [profile, setProfile] = useState({ username: "", email: "", avatar: "" });
 
   /* Formularios */
   const [newClient, setNewClient] = useState({ name: "", email: "", phone: "" });
@@ -125,6 +127,22 @@ function App() {
       console.error("getAchievements:", err);
     }
   }, []);
+  const getShop = useCallback(async () => {
+    try {
+      const res = await api.get("/api/shop");
+      setShopItems(res.data);
+    } catch (err) {
+      console.error("getShop:", err);
+    }
+  }, []);
+  const getProfile = useCallback(async () => {
+    try {
+      const res = await api.get("/api/user/profile");
+      setProfile(res.data);
+    } catch (err) {
+      console.error("getProfile:", err);
+    }
+  }, []);
 
   /*  Login handlers  */
   const handleLogin = async () => {
@@ -169,6 +187,8 @@ function App() {
       getStock();
       getXP();
       getAchievements();
+      getShop();
+      getProfile();
     }
   }, [isLoggedIn, getClients, getProjects, getEvents, getStock, getXP, getAchievements]);
 
@@ -302,6 +322,17 @@ function App() {
     }
   };
 
+  const buyItem = async (id) => {
+    try {
+      await api.post(`/api/shop/buy/${id}`);
+      alert("¡Comprado!");
+      await getXP();
+      await getShop();
+    } catch (err) {
+      alert("No tienes suficientes puntos");
+    }
+  };
+
   /*  Achievements (logros)  */
   const claimAchievement = async (achievementId) => {
     try {
@@ -313,35 +344,139 @@ function App() {
       console.error("claimAchievement:", err);
     }
   };
+const [showRegister, setShowRegister] = useState(false);
+const [registerData, setRegisterData] = useState({
+  username: "",
+  email: "",
+  password: "",
+});
+
+const handleRegister = async () => {
+  try {
+    const res = await axios.post(`${backendURL}/api/register`, registerData);
+    alert(res.data || "Registro completado. Ya puedes iniciar sesión.");
+    setShowRegister(false);
+    // opcional: limpiar campos
+    setRegisterData({ username: "", email: "", password: "" });
+  } catch (err) {
+    console.error("register error:", err);
+    const msg = err.response?.data || err.message || "Error al registrar";
+    alert("Error al registrar: " + msg);
+  }
+};
+const uploadAvatar = async (file) => {
+  const formData = new FormData();
+  formData.append("avatar", file);
+
+  try {
+    const res = await api.post("/api/user/avatar", formData);
+    setProfile((prev) => ({ ...prev, avatar: res.data.avatar }));
+    alert("Avatar actualizado");
+  } catch (err) {
+    console.error("uploadAvatar:", err);
+  }
+};
+
 
   /*  UI  */
-  if (!isLoggedIn) {
-    return (
-      <div className="d-flex justify-content-center align-items-center vh-100">
-        <Modal show centered>
-          <Modal.Header>
-            <Modal.Title>Iniciar Sesión</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <Form>
-              <Form.Group>
-                <Form.Label>Usuario</Form.Label>
-                <Form.Control value={loginData.username} onChange={(e) => setLoginData({ ...loginData, username: e.target.value })} />
-              </Form.Group>
-              <Form.Group>
-                <Form.Label>Contraseña</Form.Label>
-                <Form.Control type="password" value={loginData.password} onChange={(e) => setLoginData({ ...loginData, password: e.target.value })} />
-              </Form.Group>
-            </Form>
-            <div className="text-center mt-3">
-              <Button onClick={handleLogin} className="me-2">Iniciar Sesión</Button>
-              <Button variant="outline-danger" onClick={handleGoogleLogin}>Google</Button>
-            </div>
-          </Modal.Body>
-        </Modal>
-      </div>
-    );
-  }
+if (!isLoggedIn) {
+  return (
+    <>
+      <Modal show centered>
+        <Modal.Header>
+          <Modal.Title>Iniciar Sesión</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Form.Group>
+              <Form.Label>Usuario</Form.Label>
+              <Form.Control
+                value={loginData.username}
+                onChange={(e) =>
+                  setLoginData({ ...loginData, username: e.target.value })
+                }
+              />
+            </Form.Group>
+            <Form.Group>
+              <Form.Label>Contraseña</Form.Label>
+              <Form.Control
+                type="password"
+                value={loginData.password}
+                onChange={(e) =>
+                  setLoginData({ ...loginData, password: e.target.value })
+                }
+              />
+            </Form.Group>
+          </Form>
+          <div className="text-center mt-3">
+            <Button onClick={handleLogin} className="me-2">
+              Iniciar Sesión
+            </Button>
+            <Button variant="outline-danger" onClick={handleGoogleLogin}>
+              Google
+            </Button>
+            <Button variant="link" onClick={() => setShowRegister(true)}>
+              Crear cuenta nueva
+            </Button>
+          </div>
+        </Modal.Body>
+      </Modal>
+
+      {/* Modal de Registro — IMPORTANTE: dentro del mismo return */}
+      <Modal show={showRegister} onHide={() => setShowRegister(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Crear Cuenta</Modal.Title>
+        </Modal.Header>
+
+        <Modal.Body>
+          <Form>
+            <Form.Group className="mb-2">
+              <Form.Label>Usuario</Form.Label>
+              <Form.Control
+                value={registerData.username}
+                onChange={(e) =>
+                  setRegisterData({ ...registerData, username: e.target.value })
+                }
+              />
+            </Form.Group>
+
+            <Form.Group className="mb-2">
+              <Form.Label>Email</Form.Label>
+              <Form.Control
+                type="email"
+                value={registerData.email}
+                onChange={(e) =>
+                  setRegisterData({ ...registerData, email: e.target.value })
+                }
+              />
+            </Form.Group>
+
+            <Form.Group className="mb-2">
+              <Form.Label>Contraseña</Form.Label>
+              <Form.Control
+                type="password"
+                value={registerData.password}
+                onChange={(e) =>
+                  setRegisterData({ ...registerData, password: e.target.value })
+                }
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowRegister(false)}>
+            Cancelar
+          </Button>
+          <Button variant="primary" onClick={handleRegister}>
+            Registrarse
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    </>
+  );
+}
+
 
   /* Layout principal: contenido + menu derecho */
   return (
@@ -459,18 +594,24 @@ function App() {
             )}
           </div>
 
-          {/* Right sidebar (opción B: menú separado a la derecha) */}
+          {/* Right sidebar */}
           <div className="col-md-3">
             <div className="card sticky-top" style={{ top: 20 }}>
               <div className="card-body">
                 <h6>Cuenta</h6>
                 <div className="mb-3 d-flex align-items-center gap-2">
-                  <div style={{
-                    width: 48, height: 48, borderRadius: 8, background: "#777",
-                    display: "flex", alignItems: "center", justifyContent: "center", color: "#fff"
-                  }}>
-                    {decodeTokenUsername()?.charAt(0)?.toUpperCase() || "U"}
-                  </div>
+                      <img
+                        src={
+                          profile.avatar
+                            ? `${backendURL}/uploads/${profile.avatar}`
+                            : "https://cdn-icons-png.flaticon.com/512/149/149071.png"
+                        }
+                        alt="avatar"
+                        width={48}
+                        height={48}
+                        className="rounded"
+                        style={{ objectFit: "cover" }}
+                      />
                   <div>
                     <div style={{ fontWeight: 600 }}>{decodeTokenUsername() || "Usuario"}</div>
                     <small className="text-muted">Nivel {xpInfo.level} — {xpInfo.xp} XP</small>
@@ -480,6 +621,8 @@ function App() {
                 <div className="d-grid gap-2">
                   <Button variant={activeTab === "profile" ? "primary" : "outline-primary"} onClick={() => setActiveTab("profile")}>👤 Perfil</Button>
                   <Button variant={activeTab === "achievements" ? "primary" : "outline-primary"} onClick={() => setActiveTab("achievements")}>🏆 Logros</Button>
+                  <Button variant={activeTab === "shop" ? "primary" : "outline-primary"}  onClick={() => setActiveTab("shop")}>  🛒 Tienda</Button>
+
                 </div>
 
                 <hr />
@@ -497,6 +640,28 @@ function App() {
                 <div className="card">
                   <div className="card-body">
                     <h5 className="card-title">Perfil</h5>
+                    <div className="text-center mb-3">
+                      <img
+                        src={
+                          profile.avatar
+                            ? `${backendURL}/uploads/${profile.avatar}`
+                            : "https://cdn-icons-png.flaticon.com/512/149/149071.png"
+                        }
+                        alt="avatar"
+                        width={80}
+                        height={80}
+                        className="rounded"
+                        style={{ objectFit: "cover" }}
+                      />
+
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="form-control mt-2"
+                        onChange={(e) => uploadAvatar(e.target.files[0])}
+                      />
+
+                    </div>
                     <p><strong>Usuario:</strong> {decodeTokenUsername() || "Usuario"}</p>
                     <p><strong>Nivel:</strong> {xpInfo.level}</p>
                     <p><strong>XP:</strong> {xpInfo.xp} / {xpInfo.level * 100}</p>
@@ -535,12 +700,89 @@ function App() {
                   </div>
                 </div>
               )}
+              {activeTab === "shop" && (
+                <div className="card">
+                  <div className="card-body">
+                    <h5 className="card-title">Tienda</h5>
+                    <p>Puntos disponibles: {xpInfo.points || 0}</p>
+                    <ListGroup>
+                      {shopItems.map(item => (
+                        <ListGroup.Item key={item.id} className="d-flex justify-content-between align-items-center">
+                          <div>
+                            <strong>{item.name}</strong>
+                            <br />
+                            <small>{item.description}</small>
+                          </div>
+                          <div>
+                            <Button size="sm" onClick={() => buyItem(item.id)}>
+                              Comprar ({item.price} pts)
+                            </Button>
+                          </div>
+                        </ListGroup.Item>
+                      ))}
+                    </ListGroup>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
 
       {/*  MODALS  */}
+
+      {/* REGISTER */}
+      <Modal show={showRegister} onHide={() => setShowRegister(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Crear Cuenta</Modal.Title>
+        </Modal.Header>
+
+        <Modal.Body>
+          <Form>
+            <Form.Group className="mb-2">
+              <Form.Label>Usuario</Form.Label>
+              <Form.Control
+                value={registerData.username}
+                onChange={(e) =>
+                  setRegisterData({ ...registerData, username: e.target.value })
+                }
+              />
+            </Form.Group>
+
+            <Form.Group className="mb-2">
+              <Form.Label>Email</Form.Label>
+              <Form.Control
+                type="email"
+                value={registerData.email}
+                onChange={(e) =>
+                  setRegisterData({ ...registerData, email: e.target.value })
+                }
+              />
+            </Form.Group>
+
+            <Form.Group className="mb-2">
+              <Form.Label>Contraseña</Form.Label>
+              <Form.Control
+                type="password"
+                value={registerData.password}
+                onChange={(e) =>
+                  setRegisterData({ ...registerData, password: e.target.value })
+                }
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowRegister(false)}>
+            Cancelar
+          </Button>
+          <Button variant="primary" onClick={handleRegister}>
+            Registrarse
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
 
       {/* EVENT */}
       <Modal show={showEventModal} onHide={() => setShowEventModal(false)}>

@@ -361,3 +361,6 @@ tbody td {
     url("hunters-k-pop.otf") format("opentype"),
 
 }
+.avatar-aura {
+  box-shadow: 0 0 20px 5px gold;
+}
