@@ -35,18 +35,30 @@ const verifyToken = (req, res, next) => {
   });
 };
 // CONEXIÓN MYSQL
-const db = mysql.createConnection({
-  host: "localhost",
-  port: 3306,
-  user: "root",
-  password: "1234",
+// CONEXIÓN MYSQL (SERVIDOR REMOTO)
+
+const db = mysql.createPool({
+  host: "gateway01.eu-central-1.prod.aws.tidbcloud.com",
+  port: 4000,
+  user: "3L45dHKhYAixz8F.root",
+  password: "ibHAx4S5rHyB91ta",
   database: "crm_dibujantes",
+  waitForConnections: true,
+  connectionLimit: 10,      // número de conexiones simultáneas
+  queueLimit: 0,
+  ssl: {
+    minVersion: "TLSv1.2",
+    rejectUnauthorized: true
+  }
 });
 
-db.connect((err) => {
-  if (err) console.error("❌ Error al conectar a MySQL:", err);
-  else console.log("✅ Conectado a MySQL");
-});
+db.query("SELECT 1", (err) => {
+  if (err) {
+    console.error("Error conectando a TiDB:", err);
+  } else {
+    console.log("Conexión a TiDB funcionando correctamente");
+  }
+}); 
 
 // CONFIGURACIÓN DE MULTER
 const storage = multer.diskStorage({
@@ -68,20 +80,18 @@ app.use(passport.initialize());
 app.use(passport.session());
 app.use(cors({ origin: ["http://localhost:3000", "http://192.168.0.145:3000"], credentials: true }));
 
-// ESTRATEGIA GOOGLE
+/* ------------------------- GOOGLE LOGIN ------------------------- */
+
 const googleConfig = JSON.parse(
-  fs.readFileSync(
-    "./client_secret_399007858065-p8kv5inj7ebqcb7aaoks3kp7kpidjpjk.apps.googleusercontent.com.json"
-  )
-);
-const { client_id, client_secret, redirect_uris } = googleConfig.web;
+  fs.readFileSync("./client_secret_399007858065-p8kv5inj7ebqcb7aaoks3kp7kpidjpjk.apps.googleusercontent.com.json")
+).web;
 
 passport.use(
   new GoogleStrategy(
     {
-      clientID: client_id,
-      clientSecret: client_secret,
-      callbackURL: redirect_uris[0],
+      clientID: googleConfig.client_id,
+      clientSecret: googleConfig.client_secret,
+      callbackURL: "http://localhost:5000/auth/google/callback",
     },
     (accessToken, refreshToken, profile, done) => {
       const email = profile.emails[0].value;
@@ -108,10 +118,37 @@ passport.use(
   )
 );
 
+// Necesario para sesiones
 passport.serializeUser((user, done) => done(null, user));
-passport.deserializeUser((user, done) => done(null, user));
+passport.deserializeUser((obj, done) => done(null, obj));
 
+app.use(
+  session({
+    secret: "super_secret_key_here",
+    resave: false,
+    saveUninitialized: false,
+  })
+);
 
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Rutas Google
+app.get("/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+
+app.get(
+  "/auth/google/callback",
+  passport.authenticate("google", { failureRedirect: "http://localhost:3000" }),
+  (req, res) => {
+    const token = jwt.sign(
+      { id: req.user.id, username: req.user.username },
+      SECRET_KEY,
+      { expiresIn: "7d" }
+    );
+
+    res.redirect(`http://localhost:3000?token=${token}`);
+  }
+);
 
 
 // LOGIN LOCAL
@@ -592,3 +629,6 @@ app.get("/api/user/profile", verifyToken, (req, res) => {
     res.json(rows[0]);
   });
 });
+setInterval(() => {
+  db.query("SELECT 1", () => {});
+}, 300000); // 5 minutos
