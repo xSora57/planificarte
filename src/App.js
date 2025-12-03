@@ -183,18 +183,29 @@ function App() {
     }
   }, []);
 
-  useEffect(() => {
-    if (isLoggedIn) {
-      getClients();
-      getProjects();
-      getEvents();
-      getStock();
-      getXP();
-      getAchievements();
-      getShop();
-      getProfile();
-    }
-  }, [isLoggedIn, getClients, getProjects, getEvents, getStock, getXP, getAchievements]);
+useEffect(() => {
+  if (isLoggedIn) {
+    getClients();
+    getProjects();
+    getEvents();
+    getStock();
+    getXP();
+    getAchievements();
+    getShop();
+    getProfile();
+  }
+}, [
+  isLoggedIn,
+  getClients,
+  getProjects,
+  getEvents,
+  getStock,
+  getXP,
+  getAchievements,
+  getShop,
+  getProfile
+]);
+
 
   const addXP = async (amount) => {
     try {
