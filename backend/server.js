@@ -139,15 +139,16 @@ app.get("/auth/google", passport.authenticate("google", { scope: ["profile", "em
 
 app.get(
   "/auth/google/callback",
-  passport.authenticate("google", { failureRedirect: "http://localhost:3000" }),
+  passport.authenticate("google", { failureRedirect: "https://planificarte.netlify.app/login", session: false }),
   (req, res) => {
     const token = jwt.sign(
       { id: req.user.id, username: req.user.username },
       SECRET_KEY,
-      { expiresIn: "7d" }
+      { expiresIn: "2h" }
     );
 
-    res.redirect(`http://localhost:3000?token=${token}`);
+    // Redirige al frontend en Netlify
+    res.redirect(`https://planificarte.netlify.app/login?token=${token}`);
   }
 );
 
