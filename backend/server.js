@@ -179,20 +179,6 @@ app.get(
   passport.authenticate("google", { scope: ["profile", "email"] })
 );
 
-app.get(
-  "/auth/google/callback",
-  passport.authenticate("google", { failureRedirect: "http://localhost:3000/login", session: false }),
-  (req, res) => {
-    const token = jwt.sign(
-      { id: req.user.id, username: req.user.username },
-      SECRET_KEY,
-      { expiresIn: "2h" }
-    );
-    res.redirect(`http://localhost:3000/login?token=${token}`);
-  }
-);
-
-
 //  CLIENTES
 app.get("/api/clients", verifyToken, (req, res) => {
   db.query("SELECT * FROM clients WHERE user_id = ?", [req.user.id], (err, data) => {
