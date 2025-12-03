@@ -127,13 +127,15 @@ passport.use(
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
-app.use(
-  session({
-    secret: "super_secret_key_here",
-    resave: false,
-    saveUninitialized: false,
-  })
-);
+app.use(session({
+  secret: "planificarte_session",
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === "production", // solo HTTPS
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax"
+  }
+}));
 
 app.use(passport.initialize());
 app.use(passport.session());
