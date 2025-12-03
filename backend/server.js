@@ -13,6 +13,20 @@ import fs from "fs";
 const app = express();
 const PORT = process.env.PORT || 5000;
 const SECRET_KEY = "planificarte_secret_key";
+// MIDDLEWARE PARA VERIFICAR TOKEN JWT
+function verifyToken(req, res, next) {
+  const header = req.headers["authorization"];
+  const token = header && header.split(" ")[1];
+
+  if (!token) return res.status(401).send("Token no proporcionado");
+
+  jwt.verify(token, SECRET_KEY, (err, user) => {
+    if (err) return res.status(403).send("Token inválido");
+
+    req.user = user;
+    next();
+  });
+}
 
 // BODY + CORS
 app.use(express.json());
