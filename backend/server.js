@@ -1,10 +1,12 @@
 import express from "express";
 import cors from "cors";
 import multer from "multer";
+import path from "path";
 import mysql from "mysql2";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import passport from "passport";
+import session from "express-session"; 
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import fs from "fs";
 
