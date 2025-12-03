@@ -62,16 +62,31 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // SESIONES + PASSPORT
-app.use(
-  session({
-    secret: "planificarte_session",
-    resave: false,
-    saveUninitialized: false,
-  })
-);
+// CORS
+app.use(cors({
+  origin: [
+    "http://localhost:3000",
+    "http://192.168.0.145:3000",
+    "https://planificarte.netlify.app"
+  ],
+  credentials: true
+}));
+
+// SESIONES
+app.use(session({
+  secret: "planificarte_session",
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === "production", // Render necesita HTTPS
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax"
+  }
+}));
+
+// PASSPORT
 app.use(passport.initialize());
 app.use(passport.session());
-app.use(cors({ origin: ["http://localhost:3000", "http://192.168.0.145:3000","https://planificarte.netlify.app/"], credentials: true }));
+
 
 /* ------------------------- GOOGLE LOGIN ------------------------- */
 
