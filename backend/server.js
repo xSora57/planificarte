@@ -1,41 +1,24 @@
 import express from "express";
 import cors from "cors";
-import multer from "multer";
-import path from "path";
 import mysql from "mysql2";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import passport from "passport";
-import session from "express-session";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import fs from "fs";
 
-// CONFIGURACIÓN GENERAL
 const app = express();
+const PORT = process.env.PORT || 5000;
+const SECRET_KEY = "planificarte_secret_key";
 
+// BODY + CORS
+app.use(express.json());
 app.use(cors({
-  origin: ["https://planificarte.netlify.app/", "http://localhost:3000"]
+  origin: ["http://localhost:3000", "https://planificarte.netlify.app"],
+  credentials: true
 }));
 
-app.use(express.json());
-app.use("/uploads", express.static("uploads"));
-const SECRET_KEY = "planificarte_secret_key";
-// MIDDLEWARE: VERIFICAR TOKEN
-const verifyToken = (req, res, next) => {
-  const header = req.headers["authorization"];
-  const token = header && header.split(" ")[1];
-
-  if (!token) return res.status(401).send("Token no proporcionado");
-
-  jwt.verify(token, SECRET_KEY, (err, user) => {
-    if (err) return res.status(403).send("Token inválido");
-    req.user = user;
-    next();
-  });
-};
-// CONEXIÓN MYSQL
-// CONEXIÓN MYSQL (SERVIDOR REMOTO)
-
+// MySQL
 const db = mysql.createPool({
   host: "gateway01.eu-central-1.prod.aws.tidbcloud.com",
   port: 4000,
@@ -43,21 +26,15 @@ const db = mysql.createPool({
   password: "ibHAx4S5rHyB91ta",
   database: "crm_dibujantes",
   waitForConnections: true,
-  connectionLimit: 10,      // número de conexiones simultáneas
-  queueLimit: 0,
-  ssl: {
-    minVersion: "TLSv1.2",
-    rejectUnauthorized: true
-  }
+  connectionLimit: 10,
+  ssl: { minVersion: "TLSv1.2", rejectUnauthorized: true }
 });
 
 db.query("SELECT 1", (err) => {
-  if (err) {
-    console.error("Error conectando a TiDB:", err);
-  } else {
-    console.log("Conexión a TiDB funcionando correctamente");
-  }
-}); 
+  if (err) console.error("Error conectando a TiDB:", err);
+  else console.log("Conexión a TiDB funcionando correctamente");
+});
+
 
 // CONFIGURACIÓN DE MULTER
 const storage = multer.diskStorage({
