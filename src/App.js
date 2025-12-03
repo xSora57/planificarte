@@ -25,6 +25,14 @@ api.interceptors.request.use(
   },
   (error) => Promise.reject(error)
 );
+const urlParams = new URLSearchParams(window.location.search);
+const tokenFromUrl = urlParams.get("token");
+if (tokenFromUrl) {
+  localStorage.setItem("token", tokenFromUrl);
+  setToken(tokenFromUrl);
+  setIsLoggedIn(true);
+  window.history.replaceState({}, "", window.location.pathname);
+}
 /* APP */
 function App() {
   /*  Estados  */
