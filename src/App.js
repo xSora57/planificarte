@@ -8,10 +8,15 @@ import confetti from "canvas-confetti";
 
 /* CONFIG BACKEND */
 const isLocalhost = window.location.hostname === "localhost";
-const backendURL = isLocalhost ? "http://localhost:5000" : "http://192.168.0.145:5000";
+
+// URL del backend en Render (reemplaza con tu URL real)
+const renderBackendURL = "https://planificarte.onrender.com";
+
+const backendURL = isLocalhost ? "http://localhost:5000" : renderBackendURL;
 
 /* Instancia Axios */
 const api = axios.create({ baseURL: backendURL });
+
 api.interceptors.request.use(
   (config) => {
     const storedToken = localStorage.getItem("token");
@@ -20,7 +25,6 @@ api.interceptors.request.use(
   },
   (error) => Promise.reject(error)
 );
-
 /* APP */
 function App() {
   /*  Estados  */
