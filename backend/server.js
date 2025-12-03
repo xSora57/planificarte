@@ -77,7 +77,7 @@ app.use(
 );
 app.use(passport.initialize());
 app.use(passport.session());
-app.use(cors({ origin: ["http://localhost:3000", "http://192.168.0.145:3000"], credentials: true }));
+app.use(cors({ origin: ["http://localhost:3000", "http://192.168.0.145:3000","https://planificarte.netlify.app/"], credentials: true }));
 
 /* ------------------------- GOOGLE LOGIN ------------------------- */
 
@@ -85,14 +85,19 @@ const googleConfig = JSON.parse(
   fs.readFileSync("./client_secret_399007858065-p8kv5inj7ebqcb7aaoks3kp7kpidjpjk.apps.googleusercontent.com.json")
 ).web;
 
+const CALLBACK_URL =
+  process.env.NODE_ENV === "production"
+    ? "https://planificarte-backend.onrender.com/auth/google/callback"
+    : "http://localhost:5000/auth/google/callback";
+
 passport.use(
   new GoogleStrategy(
     {
       clientID: googleConfig.client_id,
       clientSecret: googleConfig.client_secret,
-      callbackURL: "http://localhost:5000/auth/google/callback",
+      callbackURL: CALLBACK_URL,
     },
-    (accessToken, refreshToken, profile, done) => {
+    async (accessToken, refreshToken, profile, done) => {
       const email = profile.emails[0].value;
       const username = profile.displayName;
 
@@ -116,6 +121,7 @@ passport.use(
     }
   )
 );
+
 
 // Necesario para sesiones
 passport.serializeUser((user, done) => done(null, user));
