@@ -9,6 +9,29 @@ import passport from "passport";
 import session from "express-session"; 
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import fs from "fs";
+import dotenv from "dotenv";
+dotenv.config();
+import { v2 as cloudinary } from "cloudinary";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
+
+
+// Config Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// Storage Cloudinary
+const storage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: "planificarte",
+    allowed_formats: ["jpg", "jpeg", "png", "webp"],
+  },
+});
+
+const upload = multer({ storage });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -51,15 +74,6 @@ db.query("SELECT 1", (err) => {
   if (err) console.error("Error conectando a TiDB:", err);
   else console.log("Conexión a TiDB funcionando correctamente");
 });
-
-
-// CONFIGURACIÓN DE MULTER
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "uploads/"),
-  filename: (req, file, cb) =>
-    cb(null, Date.now() + path.extname(file.originalname)),
-});
-const upload = multer({ storage });
 
 // SESIONES + PASSPORT
 // CORS
@@ -242,7 +256,8 @@ app.get("/api/projects", verifyToken, (req, res) => {
 
 app.post("/api/projects", verifyToken, upload.single("image"), (req, res) => {
   const { name, client_id, status } = req.body;
-  const image = req.file ? req.file.filename : null;
+  const image = req.file ? req.file.path : null;
+
 
   db.query(
     "INSERT INTO projects (name, client_id, status, image, user_id) VALUES (?, ?, ?, ?, ?)",
@@ -268,7 +283,8 @@ app.delete("/api/projects/:id", verifyToken, (req, res) => {
 // EDITAR PROYECTO
 app.put("/api/projects/:id", verifyToken, upload.single("image"), (req, res) => {
   const { name, client_id, status } = req.body;
-  const image = req.file ? req.file.filename : null;
+  const image = req.file ? req.file.path : null;
+
 
   let sql = "UPDATE projects SET name = ?, client_id = ?, status = ?";
   const params = [name, client_id || null, status];
@@ -334,7 +350,8 @@ app.get("/api/stock", verifyToken, (req, res) => {
 // Añadir producto
 app.post("/api/stock", verifyToken, upload.single("image"), (req, res) => {
   const { name, quantity } = req.body;
-  const image = req.file ? req.file.filename : null;
+  const image = req.file ? req.file.path : null;
+
 
   db.query(
     "INSERT INTO stock (name, quantity, image, user_id) VALUES (?, ?, ?, ?)",

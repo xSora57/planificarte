@@ -19,7 +19,6 @@ router.post("/", upload.single("image"), async (req, res) => {
   await project.save();
   res.json(project);
 });
-
 // Eliminar proyecto
 router.delete("/:id", async (req, res) => {
   await Project.findByIdAndDelete(req.params.id);

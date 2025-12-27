@@ -545,7 +545,14 @@ if (!isLoggedIn) {
                   {projects.map(p => (
                     <div className="col-md-4" key={p.id}>
                       <div className="card shadow-sm mb-3">
-                        {p.image && <img src={`${backendURL}/uploads/${p.image}`} className="card-img-top" style={{ height: 180, objectFit: "cover" }} alt="" />}
+                        {p.image && (
+                          <img
+                            src={p.image}
+                            className="card-img-top"
+                            style={{ height: 180, objectFit: "cover" }}
+                            alt="imagen del proyecto"
+                          />
+                        )}
                         <div className="card-body">
                           <h5>{p.name}</h5>
                           <p className="text-muted">Cliente: {p.client_name || "N/A"}</p>
@@ -616,11 +623,7 @@ if (!isLoggedIn) {
                 <h6>Cuenta</h6>
                 <div className="mb-3 d-flex align-items-center gap-2">
                       <img
-                        src={
-                          profile.avatar
-                            ? `${backendURL}/uploads/${profile.avatar}`
-                            : "https://cdn-icons-png.flaticon.com/512/149/149071.png"
-                        }
+                        src={profile.avatar || "https://cdn-icons-png.flaticon.com/512/149/149071.png"}
                         alt="avatar"
                         width={48}
                         height={48}

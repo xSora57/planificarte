@@ -32,7 +32,8 @@ router.get("/", auth, async (req, res) => {
 router.post("/", auth, upload.single("image"), async (req, res) => {
   try {
     const { name, quantity } = req.body;
-    const image = req.file ? req.file.filename : null;
+    const image = req.file ? req.file.path : null;
+
 
     await db.query(
       "INSERT INTO stock (name, quantity, image) VALUES (?, ?, ?)",
