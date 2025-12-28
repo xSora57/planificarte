@@ -3,6 +3,7 @@ import cors from "cors";
 import multer from "multer";
 import path from "path";
 import mysql from "mysql2";
+import fs from "fs";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import passport from "passport";
@@ -82,11 +83,9 @@ app.use(cors({
 }));
 
 /* ------------------------- GOOGLE LOGIN ------------------------- */
-
 const googleConfig = JSON.parse(
   fs.readFileSync("./client_secret_399007858065-p8kv5inj7ebqcb7aaoks3kp7kpidjpjk.apps.googleusercontent.com.json")
 ).web;
-
 const CALLBACK_URL =
   process.env.NODE_ENV === "production"
     ? "https://planificarte-backend.onrender.com/auth/google/callback"
