@@ -6,9 +6,7 @@ import mysql from "mysql2";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import passport from "passport";
-import session from "express-session"; 
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
-import fs from "fs";
 import cloudinary from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 cloudinary.v2.config({
@@ -83,22 +81,6 @@ app.use(cors({
   credentials: true
 }));
 
-// SESIONES
-app.use(session({
-  secret: "planificarte_session",
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === "production", // Render necesita HTTPS
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax"
-  }
-}));
-
-// PASSPORT
-app.use(passport.initialize());
-app.use(passport.session());
-
-
 /* ------------------------- GOOGLE LOGIN ------------------------- */
 
 const googleConfig = JSON.parse(
@@ -113,27 +95,34 @@ const CALLBACK_URL =
 passport.use(
   new GoogleStrategy(
     {
-      clientID: googleConfig.client_id,
-      clientSecret: googleConfig.client_secret,
-      callbackURL: CALLBACK_URL,
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL:
+        process.env.NODE_ENV === "production"
+          ? "https://planificarte-backend.onrender.com/auth/google/callback"
+          : "http://localhost:5000/auth/google/callback",
     },
     async (accessToken, refreshToken, profile, done) => {
       const email = profile.emails[0].value;
       const username = profile.displayName;
 
-      db.query("SELECT * FROM users WHERE email = ?", [email], async (err, results) => {
+      db.query("SELECT * FROM users WHERE email = ?", [email], async (err, rows) => {
         if (err) return done(err);
 
-        if (results.length > 0) {
-          return done(null, results[0]);
+        if (rows.length > 0) {
+          return done(null, rows[0]);
         } else {
           const hashed = await bcrypt.hash("google_auth", 10);
           db.query(
             "INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
             [username, email, hashed],
-            (err, res) => {
-              if (err) return done(err);
-              return done(null, { id: res.insertId, username, email });
+            (err2, result) => {
+              if (err2) return done(err2);
+              return done(null, {
+                id: result.insertId,
+                username,
+                email,
+              });
             }
           );
         }
@@ -141,11 +130,6 @@ passport.use(
     }
   )
 );
-
-
-// Necesario para sesiones
-passport.serializeUser((user, done) => done(null, user));
-passport.deserializeUser((obj, done) => done(null, obj));
 
 app.use(session({
   secret: "planificarte_session",
@@ -161,11 +145,20 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // Rutas Google
-app.get("/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+app.get(
+  "/auth/google",
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+    session: false,
+  })
+);
 
 app.get(
   "/auth/google/callback",
-  passport.authenticate("google", { failureRedirect: "https://planificarte.netlify.app/", session: false }),
+  passport.authenticate("google", {
+    session: false,
+    failureRedirect: "https://planificarte.netlify.app/",
+  }),
   (req, res) => {
     const token = jwt.sign(
       { id: req.user.id, username: req.user.username },
@@ -173,8 +166,7 @@ app.get(
       { expiresIn: "2h" }
     );
 
-    // Redirige al frontend en Netlify
-    res.redirect(`https://planificarte.netlify.app/login?token=${token}`);
+    res.redirect(`https://planificarte.netlify.app/?token=${token}`);
   }
 );
 
