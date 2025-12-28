@@ -1,4 +1,3 @@
-import express from "express";
 import cors from "cors";
 import multer from "multer";
 import path from "path";
@@ -9,6 +8,13 @@ import passport from "passport";
 import session from "express-session"; 
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import fs from "fs";
+import cloudinary from "cloudinary";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
+cloudinary.v2.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -54,12 +60,16 @@ db.query("SELECT 1", (err) => {
 
 
 // CONFIGURACIÓN DE MULTER
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "uploads/"),
-  filename: (req, file, cb) =>
-    cb(null, Date.now() + path.extname(file.originalname)),
+const cloudinaryStorage = new CloudinaryStorage({
+  cloudinary: cloudinary.v2,
+  params: {
+    folder: "planificarte",
+    allowed_formats: ["jpg", "png", "jpeg", "webp"],
+  },
 });
-const upload = multer({ storage });
+
+const upload = multer({ storage: cloudinaryStorage });
+
 
 // SESIONES + PASSPORT
 // CORS
@@ -154,7 +164,7 @@ app.get("/auth/google", passport.authenticate("google", { scope: ["profile", "em
 
 app.get(
   "/auth/google/callback",
-  passport.authenticate("google", { failureRedirect: "https://planificarte.netlify.app/login", session: false }),
+  passport.authenticate("google", { failureRedirect: "https://planificarte.netlify.app/", session: false }),
   (req, res) => {
     const token = jwt.sign(
       { id: req.user.id, username: req.user.username },
@@ -188,12 +198,6 @@ app.post("/api/login", (req, res) => {
     res.json({ token });
   });
 });
-
-//  LOGIN CON GOOGLE
-app.get(
-  "/auth/google",
-  passport.authenticate("google", { scope: ["profile", "email"] })
-);
 
 //  CLIENTES
 app.get("/api/clients", verifyToken, (req, res) => {
@@ -242,7 +246,7 @@ app.get("/api/projects", verifyToken, (req, res) => {
 
 app.post("/api/projects", verifyToken, upload.single("image"), (req, res) => {
   const { name, client_id, status } = req.body;
-  const image = req.file ? req.file.filename : null;
+  const image = req.file ? req.file.path : null;
 
   db.query(
     "INSERT INTO projects (name, client_id, status, image, user_id) VALUES (?, ?, ?, ?, ?)",
@@ -268,7 +272,7 @@ app.delete("/api/projects/:id", verifyToken, (req, res) => {
 // EDITAR PROYECTO
 app.put("/api/projects/:id", verifyToken, upload.single("image"), (req, res) => {
   const { name, client_id, status } = req.body;
-  const image = req.file ? req.file.filename : null;
+  const image = req.file ? req.file.path : null;
 
   let sql = "UPDATE projects SET name = ?, client_id = ?, status = ?";
   const params = [name, client_id || null, status];
@@ -334,7 +338,7 @@ app.get("/api/stock", verifyToken, (req, res) => {
 // Añadir producto
 app.post("/api/stock", verifyToken, upload.single("image"), (req, res) => {
   const { name, quantity } = req.body;
-  const image = req.file ? req.file.filename : null;
+  const image = req.file ? req.file.path : null;
 
   db.query(
     "INSERT INTO stock (name, quantity, image, user_id) VALUES (?, ?, ?, ?)",
@@ -613,19 +617,18 @@ app.post("/api/shop/buy/:itemId", verifyToken, (req, res) => {
   });
 });
 app.post("/api/user/avatar", verifyToken, upload.single("avatar"), (req, res) => {
-  if (!req.file) return res.status(400).send("No se subió imagen");
-
-  const avatarPath = req.file.filename;
+  const avatarUrl = req.file.path;
 
   db.query(
     "UPDATE users SET avatar = ? WHERE id = ?",
-    [avatarPath, req.user.id],
+    [avatarUrl, req.user.id],
     (err) => {
       if (err) return res.status(500).send(err);
-      res.json({ avatar: avatarPath });
+      res.json({ avatar: avatarUrl });
     }
   );
 });
+
 app.get("/api/user/profile", verifyToken, (req, res) => {
   db.query("SELECT username, email, avatar FROM users WHERE id = ?", [req.user.id], (err, rows) => {
     if (err) return res.status(500).send(err);

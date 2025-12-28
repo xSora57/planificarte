@@ -598,7 +598,7 @@ if (!isLoggedIn) {
                   {stock.map(item => (
                     <div className="col-md-3" key={item.id}>
                       <div className="card shadow-sm mb-3 text-center">
-                        {item.image && <img src={`${backendURL}/uploads/${item.image}`} className="card-img-top" style={{ height: 150, objectFit: "cover" }} alt="" />}
+                        {item.image && <img src={item.image} className="card-img-top" style={{ height: 150, objectFit: "cover" }} alt="" />}
                         <div className="card-body">
                           <h5>{item.name}</h5>
                           <p>Cantidad: {item.quantity}</p>
