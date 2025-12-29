@@ -248,7 +248,9 @@ useEffect(() => {
       formData.append("name", newProject.name);
       formData.append("client_id", newProject.client_id);
       formData.append("status", newProject.status);
-      if (newProject.image) formData.append("image", newProject.image);
+      if (newProject.image instanceof File) {
+        formData.append("image", newProject.image);
+      }
 
       if (newProject.id) {
         await api.put(`/api/projects/${newProject.id}`, formData);
